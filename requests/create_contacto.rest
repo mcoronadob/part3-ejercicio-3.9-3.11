@@ -1,0 +1,7 @@
+POST http://localhost:3002/api/agenda
+Content-Type: application/json
+
+{
+  "name": "julio",
+  "number": "45879123"
+}
