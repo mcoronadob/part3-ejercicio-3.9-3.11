@@ -1,33 +1,12 @@
+require('dotenv').config()
 const express = require('express')
 const app = express()
 const morgan = require('morgan');
 const cors = require('cors')
 
+const Agenda = require('./models/agenda')
+
 app.use(cors())
-
-let agenda = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-]
-
 app.use(express.json())
 app.use(express.static('dist'))
 
@@ -45,7 +24,9 @@ app.get('/', (request, response) => {
 })
 
 app.get('/api/agenda', (request, response) => {
-  response.json(agenda)
+  Agenda.find({}).then((agenda) => {
+    response.json(agenda)
+  })
 })
 
 app.get('/info', (request, response) => {
@@ -59,59 +40,70 @@ app.get('/info', (request, response) => {
   response.send(contenido)
 })
 
-app.get('/api/agenda/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const contacto = agenda.find((contacto) => contacto.id === id)
-
-  if (contacto) {
-    response.json(contacto)
-  } else {
-    response.status(404).end()
-  }
+app.get('/api/agenda/:id', (request, response, next) => {
+  Agenda.findById(request.params.id)
+    .then((agenda) => {
+      if (agenda) {
+        response.json(agenda)
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch((error) => next(error))
 })
 
-const generateId = () => {
-  const maxId =
-    agenda.length > 0 ? Math.max(...agenda.map((n) => Number(n.id))) : 0
-  return String(maxId + 1)
-}
 
 app.post('/api/agenda', (request, response) => {
   const body = request.body
-  const name_contacto = agenda.find(p => p.name === body.name);
 
   if (!body.name || !body.number) {
-    return response.status(400).json({
-      error: 'content missing',
-    })
+    return response.status(400).json({ error: 'content missing' })
   }
 
-  if (name_contacto) {
-    return response.status(400).json(
-      { error: 'name must be unique' 
-        
-      })
-  }
-
-  const contacto = {
-    id: Number(generateId()),
+  const agenda = new Agenda({
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
 
-  agenda = agenda.concat(contacto)
-
-  response.json(contacto)
+  agenda.save().then((savedAgenda) => {
+    response.json(savedAgenda)
+  })
 })
 
-app.delete('/api/agenda/:id', (request, response) => {
-  const id = Number(request.params.id)
-  agenda = agenda.filter((contacto) => contacto.id !== id)
+app.put('/api/agenda/:id', (request, response, next) => {
+  const { name, number } = request.body
 
-  response.status(204).end()
+  Agenda.findById(request.params.id)
+    .then((agenda) => {
+      if (!agenda) {
+        return response.status(404).end()
+      }
+
+      agenda.name = name
+      agenda.number = number
+
+      return agenda.save().then((updatedAgenda) => {
+        response.json(updatedAgenda)
+      })
+    })
+    .catch((error) => next(error))
 })
 
-const PORT = process.env.PORT || 3002
+app.delete('/api/agenda/:id', (request, response, next) => {
+  Agenda.findByIdAndDelete(request.params.id)
+    .then((result) => {
+      response.status(204).end()
+    })
+    .catch((error) => next(error))
+})
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+
+app.use(unknownEndpoint)
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
