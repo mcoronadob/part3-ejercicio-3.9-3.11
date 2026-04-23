@@ -1,7 +1,7 @@
-POST http://localhost:3002/api/agenda
+PUT http://localhost:3002/api/agenda/69e6944d491af828be7f054c
 Content-Type: application/json
 
 {
-  "name": "Carlos",
-  "number": "123456789"
+  "name": "Pedro",
+  "number": "58-12345679"
 }

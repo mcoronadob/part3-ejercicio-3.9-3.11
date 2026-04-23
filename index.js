@@ -6,11 +6,23 @@ const cors = require('cors')
 
 const Agenda = require('./models/agenda')
 
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
 app.use(cors())
 app.use(express.json())
 app.use(express.static('dist'))
 
-morgan.token('body', (req, res) => {
+morgan.token('body', (req) => {
     if (req.method === 'POST' && req.body) {
         return JSON.stringify(req.body);
     }
@@ -36,7 +48,6 @@ app.get('/info', (request, response) => {
     <p>Phonebook has info for people</p>
     <p>${fechaActual}</p>
   `
-  
   response.send(contenido)
 })
 
@@ -53,7 +64,7 @@ app.get('/api/agenda/:id', (request, response, next) => {
 })
 
 
-app.post('/api/agenda', (request, response) => {
+app.post('/api/agenda', (request, response, next) => {
   const body = request.body
 
   if (!body.name || !body.number) {
@@ -68,12 +79,17 @@ app.post('/api/agenda', (request, response) => {
   agenda.save().then((savedAgenda) => {
     response.json(savedAgenda)
   })
+  .catch((error) => next(error))
 })
 
 app.put('/api/agenda/:id', (request, response, next) => {
   const { name, number } = request.body
 
-  Agenda.findById(request.params.id)
+  Agenda.findById(
+    request.params.id,
+    { name, number },
+    { new: true, runValidators: true, context: 'query' }
+  )
     .then((agenda) => {
       if (!agenda) {
         return response.status(404).end()
@@ -91,7 +107,7 @@ app.put('/api/agenda/:id', (request, response, next) => {
 
 app.delete('/api/agenda/:id', (request, response, next) => {
   Agenda.findByIdAndDelete(request.params.id)
-    .then((result) => {
+    .then(() => {
       response.status(204).end()
     })
     .catch((error) => next(error))
@@ -102,6 +118,7 @@ const unknownEndpoint = (request, response) => {
 }
 
 app.use(unknownEndpoint)
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {

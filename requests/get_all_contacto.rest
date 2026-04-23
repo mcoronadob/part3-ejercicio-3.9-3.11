@@ -1,1 +1,1 @@
-GET http://localhost:3002/api/agenda/69e132185b3b0253026ff6ce
+GET http://localhost:3002/api/agenda/
